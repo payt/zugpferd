@@ -50,6 +50,19 @@ module Zugpferd
         xml["cbc"].Note doc.note if doc.note
         xml["cbc"].DocumentCurrencyCode doc.currency_code
         xml["cbc"].BuyerReference doc.buyer_reference if doc.buyer_reference
+        if doc.purchase_order_reference
+          xml["cac"].OrderReference do
+            xml["cbc"].ID doc.purchase_order_reference
+          end
+        end
+        if doc.preceding_invoice_reference
+          xml["cac"].BillingReference do
+            xml["cac"].InvoiceDocumentReference do
+              xml["cbc"].ID doc.preceding_invoice_reference
+              xml["cbc"].IssueDate doc.preceding_invoice_issue_date.to_s if doc.preceding_invoice_issue_date
+            end
+          end
+        end
 
         build_supplier(xml, doc.seller, doc.payment_instructions) if doc.seller
         build_customer(xml, doc.buyer) if doc.buyer

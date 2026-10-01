@@ -34,6 +34,9 @@ module Zugpferd
       INVOICE_SETTLEMENT = {
         currency_code:  "#{SETTLEMENT}/ram:InvoiceCurrencyCode",
         buyer_reference: "#{AGREEMENT}/ram:BuyerReference",
+        purchase_order_reference: "#{AGREEMENT}/ram:BuyerOrderReferencedDocument/ram:IssuerAssignedID",
+        preceding_invoice_reference: "#{SETTLEMENT}/ram:InvoiceReferencedDocument/ram:IssuerAssignedID",
+        preceding_invoice_issue_date: "#{SETTLEMENT}/ram:InvoiceReferencedDocument/ram:FormattedIssueDateTime/qdt:DateTimeString",
       }.freeze
 
       # Seller (BG-4)

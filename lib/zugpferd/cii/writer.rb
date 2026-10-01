@@ -76,6 +76,11 @@ module Zugpferd
           xml["ram"].BuyerReference doc.buyer_reference if doc.buyer_reference
           build_party(xml, "SellerTradeParty", doc.seller) if doc.seller
           build_party(xml, "BuyerTradeParty", doc.buyer) if doc.buyer
+          if doc.purchase_order_reference
+            xml["ram"].BuyerOrderReferencedDocument do
+              xml["ram"].IssuerAssignedID doc.purchase_order_reference
+            end
+          end
         end
       end
 
@@ -188,6 +193,18 @@ module Zugpferd
           end
 
           build_monetary_total(xml, doc.monetary_totals, doc.tax_breakdown) if doc.monetary_totals
+          build_invoice_referenced_document(xml, doc) if doc.preceding_invoice_reference
+        end
+      end
+
+      def build_invoice_referenced_document(xml, doc)
+        xml["ram"].InvoiceReferencedDocument do
+          xml["ram"].IssuerAssignedID doc.preceding_invoice_reference
+          if doc.preceding_invoice_issue_date
+            xml["ram"].FormattedIssueDateTime do
+              xml["qdt"].DateTimeString(format_cii_date(doc.preceding_invoice_issue_date), format: "102")
+            end
+          end
         end
       end
 
