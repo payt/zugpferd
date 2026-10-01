@@ -26,10 +26,24 @@ module Zugpferd
       # Delivery (BG-13)
       DELIVERY = "#{TRANSACTION}/ram:ApplicableHeaderTradeDelivery"
       DELIVERY_DATE = "ram:ActualDeliverySupplyChainEvent/ram:OccurrenceDateTime/udt:DateTimeString"
+      SHIP_TO = "ram:ShipToTradeParty"
 
       # Settlement (contains currency, payment, tax, totals)
       SETTLEMENT = "#{TRANSACTION}/ram:ApplicableHeaderTradeSettlement"
       AGREEMENT = "#{TRANSACTION}/ram:ApplicableHeaderTradeAgreement"
+
+      # Additional supporting documents (BG-24) and invoiced object identifier (BT-18)
+      ADDITIONAL_DOCUMENT = "#{AGREEMENT}/ram:AdditionalReferencedDocument"
+      ADDITIONAL_DOCUMENT_FIELDS = {
+        id:          "ram:IssuerAssignedID",
+        uri:         "ram:URIID",
+        type_code:   "ram:TypeCode",
+        description: "ram:Name",
+        attachment:  "ram:AttachmentBinaryObject",
+        scheme_id:   "ram:ReferenceTypeCode",
+      }.freeze
+      # CII document type code of an additional supporting document (BG-24)
+      SUPPORTING_DOCUMENT_TYPE_CODE = "916".freeze
 
       INVOICE_SETTLEMENT = {
         currency_code:  "#{SETTLEMENT}/ram:InvoiceCurrencyCode",
@@ -37,6 +51,10 @@ module Zugpferd
         purchase_order_reference: "#{AGREEMENT}/ram:BuyerOrderReferencedDocument/ram:IssuerAssignedID",
         preceding_invoice_reference: "#{SETTLEMENT}/ram:InvoiceReferencedDocument/ram:IssuerAssignedID",
         preceding_invoice_issue_date: "#{SETTLEMENT}/ram:InvoiceReferencedDocument/ram:FormattedIssueDateTime/qdt:DateTimeString",
+        contract_reference: "#{AGREEMENT}/ram:ContractReferencedDocument/ram:IssuerAssignedID",
+        buyer_accounting_reference: "#{SETTLEMENT}/ram:ReceivableSpecifiedTradeAccountingAccount/ram:ID",
+        invoice_period_start_date: "#{SETTLEMENT}/ram:BillingSpecifiedPeriod/ram:StartDateTime/udt:DateTimeString",
+        invoice_period_end_date: "#{SETTLEMENT}/ram:BillingSpecifiedPeriod/ram:EndDateTime/udt:DateTimeString",
       }.freeze
 
       # Seller (BG-4)
@@ -59,9 +77,12 @@ module Zugpferd
       POSTAL_ADDRESS = "ram:PostalTradeAddress"
       ADDRESS = {
         street_name:  "ram:LineOne",
+        additional_street_name: "ram:LineTwo",
+        address_line: "ram:LineThree",
         city_name:    "ram:CityName",
         postal_zone:  "ram:PostcodeCode",
         country_code: "ram:CountryID",
+        country_subdivision: "ram:CountrySubDivisionName",
       }.freeze
 
       # Contact (BG-6 / BG-9)

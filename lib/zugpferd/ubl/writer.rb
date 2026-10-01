@@ -49,7 +49,14 @@ module Zugpferd
         end
         xml["cbc"].Note doc.note if doc.note
         xml["cbc"].DocumentCurrencyCode doc.currency_code
+        xml["cbc"].AccountingCost doc.buyer_accounting_reference if doc.buyer_accounting_reference
         xml["cbc"].BuyerReference doc.buyer_reference if doc.buyer_reference
+        if doc.invoice_period_start_date || doc.invoice_period_end_date
+          xml["cac"].InvoicePeriod do
+            xml["cbc"].StartDate doc.invoice_period_start_date.to_s if doc.invoice_period_start_date
+            xml["cbc"].EndDate doc.invoice_period_end_date.to_s if doc.invoice_period_end_date
+          end
+        end
         if doc.purchase_order_reference
           xml["cac"].OrderReference do
             xml["cbc"].ID doc.purchase_order_reference
@@ -63,10 +70,16 @@ module Zugpferd
             end
           end
         end
+        if doc.contract_reference
+          xml["cac"].ContractDocumentReference do
+            xml["cbc"].ID doc.contract_reference
+          end
+        end
+        doc.additional_documents.each { |ad| build_additional_document(xml, ad) }
 
         build_supplier(xml, doc.seller, doc.payment_instructions) if doc.seller
         build_customer(xml, doc.buyer) if doc.buyer
-        build_delivery(xml, doc) if doc.delivery_date
+        build_delivery(xml, doc) if doc.delivery_date || doc.delivery_location
         build_payment_means(xml, doc.payment_instructions) if doc.payment_instructions
         build_payment_terms(xml, doc.payment_instructions) if doc.payment_instructions&.note
         doc.allowance_charges.each { |ac| build_allowance_charge(xml, ac, doc.currency_code) }
@@ -135,11 +148,18 @@ module Zugpferd
         end
       end
 
-      def build_postal_address(xml, addr)
-        xml["cac"].PostalAddress do
+      def build_postal_address(xml, addr, element_name = "PostalAddress")
+        xml["cac"].send(element_name) do
           xml["cbc"].StreetName addr.street_name if addr.street_name
+          xml["cbc"].AdditionalStreetName addr.additional_street_name if addr.additional_street_name
           xml["cbc"].CityName addr.city_name if addr.city_name
           xml["cbc"].PostalZone addr.postal_zone if addr.postal_zone
+          xml["cbc"].CountrySubentity addr.country_subdivision if addr.country_subdivision
+          if addr.address_line
+            xml["cac"].AddressLine do
+              xml["cbc"].Line addr.address_line
+            end
+          end
           xml["cac"].Country do
             xml["cbc"].IdentificationCode addr.country_code
           end
@@ -155,8 +175,46 @@ module Zugpferd
       end
 
       def build_delivery(xml, doc)
+        location = doc.delivery_location
         xml["cac"].Delivery do
-          xml["cbc"].ActualDeliveryDate doc.delivery_date.to_s
+          xml["cbc"].ActualDeliveryDate doc.delivery_date.to_s if doc.delivery_date
+          if location&.id || location&.address
+            xml["cac"].DeliveryLocation do
+              if location.id
+                attrs = location.scheme_id ? { schemeID: location.scheme_id } : {}
+                xml["cbc"].ID(location.id, attrs)
+              end
+              build_postal_address(xml, location.address, "Address") if location.address
+            end
+          end
+          if location&.party_name
+            xml["cac"].DeliveryParty do
+              xml["cac"].PartyName do
+                xml["cbc"].Name location.party_name
+              end
+            end
+          end
+        end
+      end
+
+      def build_additional_document(xml, doc)
+        xml["cac"].AdditionalDocumentReference do
+          xml["cbc"].ID(doc.id, doc.scheme_id ? { schemeID: doc.scheme_id } : {})
+          xml["cbc"].DocumentTypeCode doc.type_code if doc.type_code
+          xml["cbc"].DocumentDescription doc.description if doc.description
+          if doc.attachment || doc.uri
+            xml["cac"].Attachment do
+              if doc.attachment
+                attrs = { mimeCode: doc.mime_code, filename: doc.filename }.compact
+                xml["cbc"].EmbeddedDocumentBinaryObject(doc.attachment, attrs)
+              end
+              if doc.uri
+                xml["cac"].ExternalReference do
+                  xml["cbc"].URI doc.uri
+                end
+              end
+            end
+          end
         end
       end
 
