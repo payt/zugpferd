@@ -70,12 +70,18 @@ module Zugpferd
             end
           end
         end
+        tender, documents = split_tender(doc.additional_documents)
+        if tender
+          xml["cac"].OriginatorDocumentReference do
+            xml["cbc"].ID tender.id
+          end
+        end
         if doc.contract_reference
           xml["cac"].ContractDocumentReference do
             xml["cbc"].ID doc.contract_reference
           end
         end
-        doc.additional_documents.each { |ad| build_additional_document(xml, ad) }
+        documents.each { |ad| build_additional_document(xml, ad) }
 
         build_supplier(xml, doc.seller, doc.payment_instructions) if doc.seller
         build_customer(xml, doc.buyer) if doc.buyer
@@ -197,9 +203,19 @@ module Zugpferd
         end
       end
 
+      # Only an invoice has an OriginatorDocumentReference; a credit note keeps BT-17 as an
+      # AdditionalDocumentReference with type code 50.
+      def split_tender(documents)
+        return [nil, documents] if @credit_note
+
+        tender = documents.find(&:tender?)
+        [tender, documents - [tender]]
+      end
+
       def build_additional_document(xml, doc)
         xml["cac"].AdditionalDocumentReference do
-          xml["cbc"].ID(doc.id, doc.scheme_id ? { schemeID: doc.scheme_id } : {})
+          # UBL-CR-665: only the invoiced object identifier (BT-18) has a scheme
+          xml["cbc"].ID(doc.id, doc.scheme_id && doc.invoiced_object? ? { schemeID: doc.scheme_id } : {})
           xml["cbc"].DocumentTypeCode doc.type_code if doc.type_code
           xml["cbc"].DocumentDescription doc.description if doc.description
           if doc.attachment || doc.uri

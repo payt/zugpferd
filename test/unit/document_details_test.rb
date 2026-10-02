@@ -86,6 +86,75 @@ class DocumentDetailsTest < Minitest::Test
     assert_details Zugpferd::UBL::Reader.new.read(ubl)
   end
 
+  TOTALS = <<~XML.freeze
+    <cac:TaxTotal><cbc:TaxAmount currencyID="EUR">19.00</cbc:TaxAmount></cac:TaxTotal>
+    <cac:LegalMonetaryTotal>
+      <cbc:LineExtensionAmount currencyID="EUR">100.00</cbc:LineExtensionAmount>
+      <cbc:TaxExclusiveAmount currencyID="EUR">100.00</cbc:TaxExclusiveAmount>
+      <cbc:TaxInclusiveAmount currencyID="EUR">119.00</cbc:TaxInclusiveAmount>
+      <cbc:PayableAmount currencyID="EUR">119.00</cbc:PayableAmount>
+    </cac:LegalMonetaryTotal>
+  XML
+
+  # BT-17: an invoice carries it in OriginatorDocumentReference
+  INVOICE_WITH_TENDER = UBL.sub("<cac:ContractDocumentReference>",
+    "<cac:OriginatorDocumentReference><cbc:ID>LOT-9</cbc:ID></cac:OriginatorDocumentReference>\n<cac:ContractDocumentReference>")
+
+  # BT-17: a credit note carries it as an AdditionalDocumentReference with type code 50
+  CREDIT_NOTE_WITH_TENDER = <<~XML.freeze
+    <CreditNote xmlns="urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2"
+                xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+                xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+      <cbc:ID>CN-1</cbc:ID>
+      <cbc:IssueDate>2026-10-01</cbc:IssueDate>
+      <cbc:CreditNoteTypeCode>381</cbc:CreditNoteTypeCode>
+      <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
+      <cac:AdditionalDocumentReference>
+        <cbc:ID schemeID="ABT">LOT-9</cbc:ID>
+        <cbc:DocumentTypeCode>50</cbc:DocumentTypeCode>
+      </cac:AdditionalDocumentReference>
+      #{TOTALS}
+    </CreditNote>
+  XML
+
+  def test_invoice_tender_reference_maps_to_cii_type_code_50
+    invoice = Zugpferd::UBL::Reader.new.read(INVOICE_WITH_TENDER)
+    tender = invoice.additional_documents.find(&:tender?)
+    cii = Nokogiri::XML(Zugpferd::CII::Writer.new.write(invoice))
+    document = cii.at_xpath("//ram:AdditionalReferencedDocument[ram:TypeCode='50']", CII_NS)
+
+    assert_equal "LOT-9", tender.id
+    assert_equal "LOT-9", document.at_xpath("ram:IssuerAssignedID", CII_NS).text
+  end
+
+  def test_invoice_tender_reference_survives_a_cii_and_ubl_roundtrip
+    cii = Zugpferd::CII::Writer.new.write(Zugpferd::UBL::Reader.new.read(INVOICE_WITH_TENDER))
+    ubl = Nokogiri::XML(Zugpferd::UBL::Writer.new.write(Zugpferd::CII::Reader.new.read(cii)))
+
+    assert_equal "LOT-9", ubl.at_xpath("//cac:OriginatorDocumentReference/cbc:ID", Zugpferd::UBL::Mapping::NS).text
+    assert_empty ubl.xpath("//cac:AdditionalDocumentReference[cbc:DocumentTypeCode='50']", Zugpferd::UBL::Mapping::NS)
+  end
+
+  # CII-DT-024 allows a ReferenceTypeCode only on the invoiced object identifier (BT-18)
+  def test_credit_note_tender_reference_drops_its_scheme_in_cii
+    credit_note = Zugpferd::UBL::Reader.new.read(CREDIT_NOTE_WITH_TENDER)
+    cii = Nokogiri::XML(Zugpferd::CII::Writer.new.write(credit_note))
+    document = cii.at_xpath("//ram:AdditionalReferencedDocument", CII_NS)
+
+    assert credit_note.additional_documents.first.tender?
+    assert_equal "50", document.at_xpath("ram:TypeCode", CII_NS).text
+    assert_nil document.at_xpath("ram:ReferenceTypeCode", CII_NS)
+  end
+
+  def test_credit_note_tender_reference_stays_an_additional_document_in_ubl
+    ubl = Nokogiri::XML(Zugpferd::UBL::Writer.new.write(Zugpferd::UBL::Reader.new.read(CREDIT_NOTE_WITH_TENDER)))
+    reference = ubl.at_xpath("//cac:AdditionalDocumentReference", "cac" => Zugpferd::UBL::Mapping::CN_NS["cac"],
+                                                                  "cbc" => Zugpferd::UBL::Mapping::CN_NS["cbc"])
+
+    assert_equal "50", reference.at_xpath("cbc:DocumentTypeCode", Zugpferd::UBL::Mapping::CN_NS).text
+    assert_nil reference.at_xpath("cbc:ID", Zugpferd::UBL::Mapping::CN_NS)["schemeID"]
+  end
+
   private
 
   def assert_details(invoice)

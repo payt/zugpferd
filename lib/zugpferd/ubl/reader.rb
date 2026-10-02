@@ -51,7 +51,7 @@ module Zugpferd
           invoice_period_start_date: parse_date(text(root, INVOICE[:invoice_period_start_date])),
           invoice_period_end_date: parse_date(text(root, INVOICE[:invoice_period_end_date])),
           delivery_location: delivery_node ? build_delivery_location(delivery_node) : nil,
-          additional_documents: root.xpath(ADDITIONAL_DOCUMENT, @ns).map { |n| build_additional_document(n) },
+          additional_documents: build_additional_documents(root),
           customization_id: text(root, INVOICE[:customization_id]),
           profile_id: text(root, INVOICE[:profile_id]),
           note: text(root, INVOICE[:note]),
@@ -115,6 +115,12 @@ module Zugpferd
           scheme_id: id_node&.[]("schemeID"),
           address: address_node ? build_postal_address(address_node) : nil,
         )
+      end
+
+      def build_additional_documents(root)
+        tender = text(root, ORIGINATOR_DOCUMENT)
+        documents = root.xpath(ADDITIONAL_DOCUMENT, @ns).map { |n| build_additional_document(n) }
+        tender ? [Model::AdditionalDocument.new(id: tender, type_code: Model::AdditionalDocument::TENDER_TYPE_CODE), *documents] : documents
       end
 
       def build_additional_document(node)

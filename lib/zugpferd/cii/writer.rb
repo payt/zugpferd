@@ -100,7 +100,8 @@ module Zugpferd
             attrs = { mimeCode: doc.mime_code, filename: doc.filename }.compact
             xml["ram"].AttachmentBinaryObject(doc.attachment, attrs)
           end
-          xml["ram"].ReferenceTypeCode doc.scheme_id if doc.scheme_id
+          # CII-DT-024: only the invoiced object identifier (BT-18) has a reference type code
+          xml["ram"].ReferenceTypeCode doc.scheme_id if doc.scheme_id && doc.invoiced_object?
         end
       end
 

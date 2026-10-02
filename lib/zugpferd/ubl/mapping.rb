@@ -43,6 +43,9 @@ module Zugpferd
 
       # Additional supporting documents (BG-24) and invoiced object identifier (BT-18)
       ADDITIONAL_DOCUMENT = "cac:AdditionalDocumentReference"
+      # Tender or lot reference (BT-17) of an invoice; a credit note carries it as an
+      # AdditionalDocumentReference with type code 50
+      ORIGINATOR_DOCUMENT = "cac:OriginatorDocumentReference/cbc:ID"
       ADDITIONAL_DOCUMENT_FIELDS = {
         id:          "cbc:ID",
         type_code:   "cbc:DocumentTypeCode",
