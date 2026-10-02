@@ -81,6 +81,27 @@ module Zugpferd
               xml["ram"].IssuerAssignedID doc.purchase_order_reference
             end
           end
+          if doc.contract_reference
+            xml["ram"].ContractReferencedDocument do
+              xml["ram"].IssuerAssignedID doc.contract_reference
+            end
+          end
+          doc.additional_documents.each { |ad| build_additional_document(xml, ad) }
+        end
+      end
+
+      def build_additional_document(xml, doc)
+        xml["ram"].AdditionalReferencedDocument do
+          xml["ram"].IssuerAssignedID doc.id
+          xml["ram"].URIID doc.uri if doc.uri
+          xml["ram"].TypeCode(doc.type_code || SUPPORTING_DOCUMENT_TYPE_CODE)
+          xml["ram"].Name doc.description if doc.description
+          if doc.attachment
+            attrs = { mimeCode: doc.mime_code, filename: doc.filename }.compact
+            xml["ram"].AttachmentBinaryObject(doc.attachment, attrs)
+          end
+          # CII-DT-024: only the invoiced object identifier (BT-18) has a reference type code
+          xml["ram"].ReferenceTypeCode doc.scheme_id if doc.scheme_id && doc.invoiced_object?
         end
       end
 
@@ -125,8 +146,11 @@ module Zugpferd
         xml["ram"].PostalTradeAddress do
           xml["ram"].PostcodeCode addr.postal_zone if addr.postal_zone
           xml["ram"].LineOne addr.street_name if addr.street_name
+          xml["ram"].LineTwo addr.additional_street_name if addr.additional_street_name
+          xml["ram"].LineThree addr.address_line if addr.address_line
           xml["ram"].CityName addr.city_name if addr.city_name
           xml["ram"].CountryID addr.country_code
+          xml["ram"].CountrySubDivisionName addr.country_subdivision if addr.country_subdivision
         end
       end
 
@@ -148,6 +172,7 @@ module Zugpferd
 
       def build_delivery(xml, doc)
         xml["ram"].ApplicableHeaderTradeDelivery do
+          build_ship_to(xml, doc.delivery_location) if doc.delivery_location
           if doc.delivery_date
             xml["ram"].ActualDeliverySupplyChainEvent do
               xml["ram"].OccurrenceDateTime do
@@ -155,6 +180,18 @@ module Zugpferd
               end
             end
           end
+        end
+      end
+
+      def build_ship_to(xml, location)
+        xml["ram"].ShipToTradeParty do
+          if location.id && location.scheme_id
+            xml["ram"].GlobalID(location.id, schemeID: location.scheme_id)
+          elsif location.id
+            xml["ram"].ID location.id
+          end
+          xml["ram"].Name location.party_name if location.party_name
+          build_postal_address(xml, location.address) if location.address
         end
       end
 
@@ -178,6 +215,21 @@ module Zugpferd
             end
           end
 
+          if doc.invoice_period_start_date || doc.invoice_period_end_date
+            xml["ram"].BillingSpecifiedPeriod do
+              if doc.invoice_period_start_date
+                xml["ram"].StartDateTime do
+                  xml["udt"].DateTimeString(format_cii_date(doc.invoice_period_start_date), format: "102")
+                end
+              end
+              if doc.invoice_period_end_date
+                xml["ram"].EndDateTime do
+                  xml["udt"].DateTimeString(format_cii_date(doc.invoice_period_end_date), format: "102")
+                end
+              end
+            end
+          end
+
           doc.allowance_charges.each { |ac| build_allowance_charge(xml, ac) }
 
           if doc.payment_instructions&.note || doc.due_date || doc.payment_instructions&.mandate_reference
@@ -194,6 +246,11 @@ module Zugpferd
 
           build_monetary_total(xml, doc.monetary_totals, doc.tax_breakdown) if doc.monetary_totals
           build_invoice_referenced_document(xml, doc) if doc.preceding_invoice_reference
+          if doc.buyer_accounting_reference
+            xml["ram"].ReceivableSpecifiedTradeAccountingAccount do
+              xml["ram"].ID doc.buyer_accounting_reference
+            end
+          end
         end
       end
 

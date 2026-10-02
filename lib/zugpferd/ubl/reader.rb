@@ -46,6 +46,12 @@ module Zugpferd
           purchase_order_reference: text(root, INVOICE[:purchase_order_reference]),
           preceding_invoice_reference: text(root, INVOICE[:preceding_invoice_reference]),
           preceding_invoice_issue_date: parse_date(text(root, INVOICE[:preceding_invoice_issue_date])),
+          contract_reference: text(root, INVOICE[:contract_reference]),
+          buyer_accounting_reference: text(root, INVOICE[:buyer_accounting_reference]),
+          invoice_period_start_date: parse_date(text(root, INVOICE[:invoice_period_start_date])),
+          invoice_period_end_date: parse_date(text(root, INVOICE[:invoice_period_end_date])),
+          delivery_location: delivery_node ? build_delivery_location(delivery_node) : nil,
+          additional_documents: build_additional_documents(root),
           customization_id: text(root, INVOICE[:customization_id]),
           profile_id: text(root, INVOICE[:profile_id]),
           note: text(root, INVOICE[:note]),
@@ -88,8 +94,47 @@ module Zugpferd
         Model::PostalAddress.new(
           country_code: text(node, ADDRESS[:country_code]),
           street_name: text(node, ADDRESS[:street_name]),
+          additional_street_name: text(node, ADDRESS[:additional_street_name]),
+          address_line: text(node, ADDRESS[:address_line]),
           city_name: text(node, ADDRESS[:city_name]),
           postal_zone: text(node, ADDRESS[:postal_zone]),
+          country_subdivision: text(node, ADDRESS[:country_subdivision]),
+        )
+      end
+
+      def build_delivery_location(node)
+        location = node.at_xpath(DELIVERY_LOCATION, @ns)
+        party_name = text(node, DELIVERY_PARTY_NAME)
+        return nil unless location || party_name
+
+        id_node = location&.at_xpath(DELIVERY_LOCATION_ID, @ns)
+        address_node = location&.at_xpath(DELIVERY_ADDRESS, @ns)
+        Model::DeliveryLocation.new(
+          party_name: party_name,
+          id: id_node&.text,
+          scheme_id: id_node&.[]("schemeID"),
+          address: address_node ? build_postal_address(address_node) : nil,
+        )
+      end
+
+      def build_additional_documents(root)
+        tender = text(root, ORIGINATOR_DOCUMENT)
+        documents = root.xpath(ADDITIONAL_DOCUMENT, @ns).map { |n| build_additional_document(n) }
+        tender ? [Model::AdditionalDocument.new(id: tender, type_code: Model::AdditionalDocument::TENDER_TYPE_CODE), *documents] : documents
+      end
+
+      def build_additional_document(node)
+        id_node = node.at_xpath(ADDITIONAL_DOCUMENT_FIELDS[:id], @ns)
+        attachment_node = node.at_xpath(ADDITIONAL_DOCUMENT_FIELDS[:attachment], @ns)
+        Model::AdditionalDocument.new(
+          id: id_node&.text,
+          scheme_id: id_node&.[]("schemeID"),
+          type_code: text(node, ADDITIONAL_DOCUMENT_FIELDS[:type_code]),
+          description: text(node, ADDITIONAL_DOCUMENT_FIELDS[:description]),
+          uri: text(node, ADDITIONAL_DOCUMENT_FIELDS[:uri]),
+          attachment: attachment_node&.text&.strip,
+          mime_code: attachment_node&.[]("mimeCode"),
+          filename: attachment_node&.[]("filename"),
         )
       end
 

@@ -50,6 +50,12 @@ module Zugpferd
           purchase_order_reference: text(root, INVOICE_SETTLEMENT[:purchase_order_reference]),
           preceding_invoice_reference: text(root, INVOICE_SETTLEMENT[:preceding_invoice_reference]),
           preceding_invoice_issue_date: parse_cii_date(text(root, INVOICE_SETTLEMENT[:preceding_invoice_issue_date])),
+          contract_reference: text(root, INVOICE_SETTLEMENT[:contract_reference]),
+          buyer_accounting_reference: text(root, INVOICE_SETTLEMENT[:buyer_accounting_reference]),
+          invoice_period_start_date: parse_cii_date(text(root, INVOICE_SETTLEMENT[:invoice_period_start_date])),
+          invoice_period_end_date: parse_cii_date(text(root, INVOICE_SETTLEMENT[:invoice_period_end_date])),
+          delivery_location: build_delivery_location(delivery&.at_xpath(SHIP_TO, NS)),
+          additional_documents: root.xpath(ADDITIONAL_DOCUMENT, NS).map { |n| build_additional_document(n) },
           customization_id: text(root, INVOICE[:customization_id]),
           profile_id: text(root, INVOICE[:profile_id]),
           note: text(root, INVOICE[:note]),
@@ -92,8 +98,39 @@ module Zugpferd
         Model::PostalAddress.new(
           country_code: text(node, ADDRESS[:country_code]),
           street_name: text(node, ADDRESS[:street_name]),
+          additional_street_name: text(node, ADDRESS[:additional_street_name]),
+          address_line: text(node, ADDRESS[:address_line]),
           city_name: text(node, ADDRESS[:city_name]),
           postal_zone: text(node, ADDRESS[:postal_zone]),
+          country_subdivision: text(node, ADDRESS[:country_subdivision]),
+        )
+      end
+
+      def build_delivery_location(node)
+        return nil unless node
+
+        global_id = node.at_xpath("ram:GlobalID", NS)
+        address_node = node.at_xpath(POSTAL_ADDRESS, NS)
+        Model::DeliveryLocation.new(
+          party_name: text(node, "ram:Name"),
+          id: global_id&.text || text(node, "ram:ID"),
+          scheme_id: global_id&.[]("schemeID"),
+          address: address_node ? build_postal_address(address_node) : nil,
+        )
+      end
+
+      def build_additional_document(node)
+        attachment_node = node.at_xpath(ADDITIONAL_DOCUMENT_FIELDS[:attachment], NS)
+        type_code = text(node, ADDITIONAL_DOCUMENT_FIELDS[:type_code])
+        Model::AdditionalDocument.new(
+          id: text(node, ADDITIONAL_DOCUMENT_FIELDS[:id]),
+          scheme_id: text(node, ADDITIONAL_DOCUMENT_FIELDS[:scheme_id]),
+          type_code: type_code == SUPPORTING_DOCUMENT_TYPE_CODE ? nil : type_code,
+          description: text(node, ADDITIONAL_DOCUMENT_FIELDS[:description]),
+          uri: text(node, ADDITIONAL_DOCUMENT_FIELDS[:uri]),
+          attachment: attachment_node&.text&.strip,
+          mime_code: attachment_node&.[]("mimeCode"),
+          filename: attachment_node&.[]("filename"),
         )
       end
 

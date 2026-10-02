@@ -24,6 +24,10 @@ module Zugpferd
         purchase_order_reference: "cac:OrderReference/cbc:ID",
         preceding_invoice_reference: "cac:BillingReference/cac:InvoiceDocumentReference/cbc:ID",
         preceding_invoice_issue_date: "cac:BillingReference/cac:InvoiceDocumentReference/cbc:IssueDate",
+        contract_reference: "cac:ContractDocumentReference/cbc:ID",
+        buyer_accounting_reference: "cbc:AccountingCost",
+        invoice_period_start_date: "cac:InvoicePeriod/cbc:StartDate",
+        invoice_period_end_date: "cac:InvoicePeriod/cbc:EndDate",
         customization_id:   "cbc:CustomizationID",
         profile_id:         "cbc:ProfileID",
         note:               "cbc:Note",
@@ -32,6 +36,23 @@ module Zugpferd
       # Delivery (BG-13)
       DELIVERY = "cac:Delivery"
       DELIVERY_DATE = "cbc:ActualDeliveryDate"
+      DELIVERY_LOCATION = "cac:DeliveryLocation"
+      DELIVERY_LOCATION_ID = "cbc:ID"
+      DELIVERY_ADDRESS = "cac:Address"
+      DELIVERY_PARTY_NAME = "cac:DeliveryParty/cac:PartyName/cbc:Name"
+
+      # Additional supporting documents (BG-24) and invoiced object identifier (BT-18)
+      ADDITIONAL_DOCUMENT = "cac:AdditionalDocumentReference"
+      # Tender or lot reference (BT-17) of an invoice; a credit note carries it as an
+      # AdditionalDocumentReference with type code 50
+      ORIGINATOR_DOCUMENT = "cac:OriginatorDocumentReference/cbc:ID"
+      ADDITIONAL_DOCUMENT_FIELDS = {
+        id:          "cbc:ID",
+        type_code:   "cbc:DocumentTypeCode",
+        description: "cbc:DocumentDescription",
+        attachment:  "cac:Attachment/cbc:EmbeddedDocumentBinaryObject",
+        uri:         "cac:Attachment/cac:ExternalReference/cbc:URI",
+      }.freeze
 
       # Seller (BG-4)
       SELLER = "cac:AccountingSupplierParty/cac:Party"
@@ -53,8 +74,11 @@ module Zugpferd
       POSTAL_ADDRESS = "cac:PostalAddress"
       ADDRESS = {
         street_name:  "cbc:StreetName",
+        additional_street_name: "cbc:AdditionalStreetName",
+        address_line: "cac:AddressLine/cbc:Line",
         city_name:    "cbc:CityName",
         postal_zone:  "cbc:PostalZone",
+        country_subdivision: "cbc:CountrySubentity",
         country_code: "cac:Country/cbc:IdentificationCode",
       }.freeze
 

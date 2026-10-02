@@ -23,6 +23,12 @@ module Zugpferd
       # @return [String, nil] BT-13 Purchase order reference
       # @return [String, nil] BT-25 Preceding invoice reference
       # @return [Date, nil] BT-26 Preceding invoice issue date
+      # @return [String, nil] BT-12 Contract reference
+      # @return [String, nil] BT-19 Buyer accounting reference
+      # @return [Date, nil] BT-73 Invoicing period start date
+      # @return [Date, nil] BT-74 Invoicing period end date
+      # @return [DeliveryLocation, nil] BT-70, BT-71, BG-15 Deliver to information
+      # @return [Array<AdditionalDocument>] BG-24 Additional supporting documents and BT-18
       # @return [String, nil] BT-24 Specification identifier
       # @return [String, nil] BT-23 Business process type
       # @return [String, nil] BT-22 Invoice note
@@ -36,7 +42,9 @@ module Zugpferd
       attr_accessor :number, :issue_date, :due_date, :type_code,
                     :currency_code, :delivery_date, :buyer_reference,
                     :purchase_order_reference, :preceding_invoice_reference,
-                    :preceding_invoice_issue_date,
+                    :preceding_invoice_issue_date, :contract_reference,
+                    :buyer_accounting_reference, :invoice_period_start_date,
+                    :invoice_period_end_date, :delivery_location, :additional_documents,
                     :customization_id, :profile_id, :note, :seller, :buyer,
                     :line_items, :tax_breakdown, :monetary_totals,
                     :payment_instructions, :allowance_charges
@@ -54,6 +62,7 @@ module Zugpferd
         @currency_code = currency_code
         @line_items = []
         @allowance_charges = []
+        @additional_documents = []
         @tax_breakdown = nil
         rest.each { |k, v| public_send(:"#{k}=", v) }
       end
